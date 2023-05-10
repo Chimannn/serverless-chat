@@ -1,7 +1,7 @@
 <template>
     <div class="login-page">
         <div :class="['modal', isLogin ? 'modal1': 'modal2']" ref="theModal">
-            <form v-if="isLogin" @submit.prevent="login">
+            <form v-if="isLogin" @submit.prevent="(() => throttle(login))()" >
               <div class="title">
 				<span>Login</span>
 				<span class="changeModal" @click="changeModal(1)">Sign up</span>
@@ -13,7 +13,7 @@
               <button type="submit">Login</button>
           </form>
 
-		  <form v-else @submit.prevent="signup">
+		  <form v-else @submit.prevent="(() => throttle(signup))()">
 			<div class="title">
 				<span>Sign Up</span>
 				<span class="changeModal" @click="changeModal(2)">back to Login</span>
@@ -36,42 +36,15 @@
 			<button type="submit">Sign Up</button>
 			</form>
         </div>
-      <!-- <div class="card">
-        <form @submit.prevent="login">
-          <div class="title">Login</div>
-          <input placeholder="Username" type="text" v-model="username" />
-          <br />
-          <input placeholder="Password" type="password" v-model="password" />
-          <br />
-          <button type="submit">Login</button>
-        </form>
-  
-        <form @submit.prevent="signup">
-          <div class="title">Sign Up</div>
-          <input
-            class="input"
-            placeholder="Username"
-            type="text"
-            v-model="username"
-          />
-          <br />
-          <input placeholder="Password" type="password" v-model="password" />
-          <br />
-          <input placeholder="Email" type="text" v-model="email" />
-          <br />
-          <input placeholder="First name" type="text" v-model="first_name" />
-          <br />
-          <input placeholder="Last name" type="text" v-model="last_name" />
-          <br />
-          <button type="submit">Sign Up</button>
-        </form>
-      </div> -->
     </div>
   </template>
   
   <script setup>
 import { reactive, toRefs, ref } from 'vue';
 import { loginRest, signupRest } from "./api";
+import Message from "@/components/Message/index.js"
+import "@/components/Message/src/Message.less"
+
 const state = reactive({
     username: "",
     password: "",
@@ -90,10 +63,17 @@ const { username, password, email, first_name, last_name, isLogin } = toRefs(sta
 //methods:
 const login = () => {
     loginRest(state.username, state.password)
-        .then((response) =>
+        .then((response) => {
+			Message.success("登录成功")
             emit("onAuth", { ...response.data, secret: state.password })
-        )
-        .catch((error) => console.log("Login error", error));
+		})
+        .catch((error) => {
+			if(error.message){
+				Message.error("登录失败: " + error.message)
+			}else{
+				Message.error("登录失败，请重新尝试");
+			}
+		});
 }
 
 const signup = () => {
@@ -104,12 +84,17 @@ const signup = () => {
         state.first_name,
         state.last_name
     )
-    .then((response) =>
+    .then((response) => {
+		Message.success("成功注册")
         emit("onAuth", { ...response.data, secret: state.password })
+	}
     )
     .catch((error) => {
-		console.log("Sign up error", error)
-		alert(error)
+		if(error.message){
+			Message.error("注册失败: " + error.message)
+		}else{
+			Message.error("注册失败，请重新尝试");
+		}
 	});
 }
 
@@ -121,6 +106,18 @@ const changeModal = (num) => {
 	state.first_name =  ""
 	state.last_name = ""
 
+}
+
+//节流函数
+const throttle = (cb)=>{
+	let lastCallTime = 0 
+	return function(){
+		const now = Date.now()
+		if(now - lastCallTime >= 500){
+			cb.apply(this)
+			lastCallTime = now
+		}
+	}
 }
 
 </script>
